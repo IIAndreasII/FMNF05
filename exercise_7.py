@@ -115,47 +115,42 @@ print(adaptive_trapezoid(b, b_interval[0], b_interval[1], tol))
 print(adaptive_trapezoid(c, c_interval[0], c_interval[1], tol))
 
 
-import math
+# TODO: un-nest the function
+def adaptive_simpsons(f, a, b, tol, max_depth):
+    c = (a + b) / 2.0
+    fa = f(a)
+    fb = f(b)
+    fc = f(c)
 
-def standard_normal_cdf(x):
-    # CDF of the standard normal distribution
-    return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+    def simpsons_rule(fa, fb, fc, h):
+        return (h * (fa + 4.0 * fc + fb)) / 6.0
 
-def adaptive_simpson_quadrature(f, a, b, eps):
-    h = b - a
-    T0 = h*(f(a) + 4*f((a+b)/2) + f(b))/6
-    S = [T0] # list to hold the Simpson's rule approximations
-    
-    # perform recursive refinement of Simpson's rule approximation
-    def recursive_refinement(a, b, T, S, eps):
-        c = (a + b)/2
-        T_left = (h/4)*(f(a) + 4*f((a+c)/2) + f(c))
-        T_right = (h/4)*(f(c) + 4*f((c+b)/2) + f(b))
-        T1 = T_left + T_right
-        S.append(T1)
-        # check if approximation is within tolerance
-        if abs(T1 - T) <= eps:
-            return T1
-        else:
-            # recursively refine left, right, and middle subintervals
-            T_left = recursive_refinement(a, c, T_left, S, eps/2)
-            T_right = recursive_refinement(c, b, T_right, S, eps/2)
-            return T_left + T_right - T
-    
-    # recursively refine Simpson's rule approximation
-    T = recursive_refinement(a, b, T0, S, eps)
-    return T, S
+    def adaptive_simpsons_recursive(f, a, b, fa, fb, fc, tol, depth):
+        c = (a + b) / 2.0
+        h = b - a
+        fd = f(c - h / 4.0)
+        fe = f(c + h / 4.0)
+        fcd = f(c)
+        S = simpsons_rule(fa, fcd, fd, h / 2.0) + simpsons_rule(fcd, fb, fe, h / 2.0)
 
-def probability_within_sigma(sigma):
-    eps = 0.5e-8
-    T_left, S = adaptive_simpson_quadrature(standard_normal_cdf, 0, sigma, eps)
-    T_right, S = adaptive_simpson_quadrature(standard_normal_cdf, 0, -sigma, eps)
-    return 2*(T_left - T_right)  # double the integral from 0 to sigma
+        if abs(S - simpsons_rule(fa, fb, fc, h)) < 15.0 * tol or depth > max_depth:
+            return S + (S - simpsons_rule(fa, fb, fc, h)) / 15.0
+        return adaptive_simpsons_recursive(f, a, c, fa, fd, fc, tol / 2.0, depth + 1) + adaptive_simpsons_recursive(f, c, b, fc, fe, fb, tol / 2.0, depth + 1)
 
-# test the algorithm for different sigma values
-sigma_values = [1, 2, 3]
-for sigma in sigma_values:
-    prob = probability_within_sigma(sigma)
-    print("Probability of being within", sigma, "standard deviations:", prob)
+    return adaptive_simpsons_recursive(f, a, b, fa, fb, fc, tol, 0)
+
+def normal_distribution(x):
+    return (1.0 / math.sqrt(2.0 * math.pi)) * math.exp(-x**2 / 2.0)
+
+tolerance = 0.5 * 10**(-8)
+
+P_1 = adaptive_simpsons(normal_distribution, -1, 1, tolerance, 10)
+P_2 = adaptive_simpsons(normal_distribution, -2, 2, tolerance, 10)
+P_3 = adaptive_simpsons(normal_distribution, -3, 3, tolerance, 10)
+
+print("The probability to be within 1 standard deviation: ", P_1)
+print("The probability to be within 2 standard deviations: ", P_2)
+print("The probability to be within 3 standard deviations: ", P_3)
+
 
 
